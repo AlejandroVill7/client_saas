@@ -3,6 +3,9 @@ import type { CartItem, Producto, Variante } from '@/types/menu';
 
 interface CartStore {
   items: CartItem[];
+  orderType: 'sucursal' | 'domicilio' | null;
+  tableNumber: string | null;
+  setOrderInfo: (type: 'sucursal' | 'domicilio', table: string | null) => void;
   addItem: (producto: Producto, variantes: Variante[], notas: string) => void;
   removeItem: (lineId: string) => void;
   updateQuantity: (lineId: string, cantidad: number) => void;
@@ -13,6 +16,10 @@ interface CartStore {
 
 export const useCart = create<CartStore>((set, get) => ({
   items: [],
+  orderType: null,
+  tableNumber: null,
+
+  setOrderInfo: (orderType, tableNumber) => set({ orderType, tableNumber }),
 
   addItem: (producto, variantes, notas) => {
     const lineId = `${producto.id}-${variantes.map(v => v.id).sort().join(',')}-${Date.now()}`;

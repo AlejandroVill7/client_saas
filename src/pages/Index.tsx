@@ -11,6 +11,7 @@ import GoldenGarlands from '@/components/GoldenGarlands';
 import { useCart } from '@/store/useCart';
 import { mockMenu } from '@/data/mockMenu';
 import type { Producto, Variante, MenuResponse } from '@/types/menu';
+import { MapPin, Home, Utensils } from 'lucide-react';
 
 // Image imports
 import imgCarpaccio from '@/assets/dish-carpaccio.jpg';
@@ -44,8 +45,21 @@ const Index = () => {
   const [customizerProduct, setCustomizerProduct] = useState<Producto | null>(null);
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [revealDone, setRevealDone] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [localTable, setLocalTable] = useState('');
+  
   const addItem = useCart((s) => s.addItem);
+  const orderType = useCart((s) => s.orderType);
+  const tableNumber = useCart((s) => s.tableNumber);
+  const setOrderInfo = useCart((s) => s.setOrderInfo);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  // Auto-open modal if no order type is set
+  useEffect(() => {
+    if (!orderType && revealDone) {
+      setTimeout(() => setIsLocationModalOpen(true), 1500);
+    }
+  }, [orderType, revealDone]);
 
   // Detect system dark mode
   useEffect(() => {
@@ -135,14 +149,24 @@ const Index = () => {
             >
               {menu?.franquicia.nombre ?? ''}
             </motion.h1>
-            {menu && (
+            {menu && orderType === 'sucursal' && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: revealDone ? 1 : 0 }}
                 transition={{ delay: 0.5 }}
                 className="mt-1 text-xs text-muted-foreground"
               >
-                {menu.mesa} · La cocina está lista
+                Mesa {tableNumber || menu.mesa} · La cocina está lista
+              </motion.p>
+            )}
+            {menu && orderType === 'domicilio' && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: revealDone ? 1 : 0 }}
+                transition={{ delay: 0.5 }}
+                className="mt-1 text-xs text-muted-foreground"
+              >
+                Pedido a Domicilio · Preparando para envío
               </motion.p>
             )}
           </div>
@@ -186,6 +210,73 @@ const Index = () => {
           onClose={() => setCustomizerOpen(false)}
           onConfirm={handleConfirmCustomizer}
         />
+
+        {/* Location Modal Overlay */}
+        <AnimatePresence>
+          {isLocationModalOpen && !orderType && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 p-6 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                className="w-full max-w-sm rounded-3xl bg-card p-8 shadow-2xl border flex flex-col items-center text-center"
+              >
+                <MapPin className="h-10 w-10 text-primary mb-4" />
+                <h2 className="font-display text-2xl font-bold mb-2">¿Cómo deseas pedir?</h2>
+                <p className="text-sm text-muted-foreground mb-8">
+                  Para brindarte el mejor servicio, indícanos tu preferencia
+                </p>
+
+                <div className="flex flex-col gap-3 w-full">
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => {
+                        if (!localTable) {
+                          alert('Por favor, ingresa un número de mesa');
+                          return;
+                        }
+                        setOrderInfo('sucursal', localTable);
+                        setIsLocationModalOpen(false);
+                      }}
+                      className="flex items-center gap-3 w-full rounded-2xl bg-primary py-4 px-4 font-sans text-sm font-bold uppercase tracking-wider text-primary-foreground transition-transform active:scale-[0.98]"
+                    >
+                      <Utensils className="h-4 w-4" />
+                      En Sucursal
+                    </button>
+                    <input
+                      type="text"
+                      placeholder="Número de Mesa"
+                      value={localTable}
+                      onChange={(e) => setLocalTable(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-transparent px-4 py-3 text-center text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div className="my-2 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">o</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setOrderInfo('domicilio', null);
+                      setIsLocationModalOpen(false);
+                    }}
+                    className="flex items-center gap-3 w-full rounded-2xl border border-border py-4 px-4 font-sans text-sm font-semibold uppercase tracking-wider text-foreground hover:bg-muted transition-colors active:scale-[0.98]"
+                  >
+                    <Home className="h-4 w-4" />
+                    Para Domicilio
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </>
   );

@@ -2,11 +2,39 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from 'vaul';
 import { useCart } from '@/store/useCart';
 import { Minus, Plus, ShoppingBag } from 'lucide-react';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
+
 
 const CartDrawer = () => {
-  const { items, total, itemCount, updateQuantity, removeItem, clearCart } = useCart();
+  const { items, total, itemCount, updateQuantity, clearCart, orderType, tableNumber } = useCart();
   const count = itemCount();
   const cartTotal = total();
+
+  const handleSuccessfulPayment = (details?: any) => {
+    const orderPayload = {
+      orderType,
+      tableNumber,
+      total: cartTotal,
+      paypalOrderId: details?.id,
+      items: items.map(item => ({
+        id: item.producto.id,
+        nombre: item.producto.nombre,
+        cantidad: item.cantidad,
+        // The formatted notes combining text notes and variants (true/false concept)
+        notasFormateadas: `Notas del cliente: ${item.notas || 'Ninguna'}. Variantes seleccionadas: ${item.variantes_seleccionadas.map(v => v.nombre).join(', ') || 'Ninguna'}.`,
+        variantesObjeto: item.variantes_seleccionadas.reduce((acc, v) => ({ ...acc, [v.nombre]: true }), {}),
+        precioUnitario: item.producto.precio,
+      }))
+    };
+    
+    console.log("==> Mock API Payload (Success):", JSON.stringify(orderPayload, null, 2));
+    alert(`¡Pedido confirmado! Se recibirá ${orderType === 'sucursal' ? 'en la mesa ' + tableNumber : 'a domicilio'}. \nRevisa la consola para ver el Payload enviado a la API.`);
+    clearCart();
+  };
+
+  const handleCashPayment = () => {
+    handleSuccessfulPayment({ id: 'PAGO_EN_EFECTIVO' });
+  };
 
   if (count === 0) return null;
 
@@ -91,17 +119,39 @@ const CartDrawer = () => {
             </AnimatePresence>
           </div>
           <div className="border-t border-border pt-4 space-y-3">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-4">
               <span className="font-display text-lg">Total</span>
               <span className="font-sans text-xl font-bold tabular-nums">${cartTotal.toFixed(2)}</span>
             </div>
-            <button className="w-full rounded-2xl bg-primary py-4 font-sans text-sm font-bold uppercase tracking-wider text-primary-foreground transition-transform active:scale-[0.98]">
-              Confirmar Pedido
-            </button>
-            <button className="w-full rounded-2xl border border-border py-3 font-sans text-xs font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted">
+            
+            <div className="relative z-0 min-h-[150px]">
+              <PayPalScriptProvider options={{ clientId: "test", currency: "MXN" }}>
+                <PayPalButtons
+                  style={{ layout: "vertical", shape: "rect", color: "black" }}
+                  createOrder={(data, actions) => {
+                    return actions.order.create({
+                      intent: "CAPTURE",
+                      purchase_units: [{
+                        amount: { value: cartTotal.toFixed(2), currency_code: "MXN" }
+                      }]
+                    });
+                  }}
+                  onApprove={async (data, actions) => {
+                    if (!actions.order) return;
+                    const details = await actions.order.capture();
+                    handleSuccessfulPayment(details);
+                  }}
+                />
+              </PayPalScriptProvider>
+            </div>
+
+            <button
+              onClick={handleCashPayment}
+              className="w-full rounded-2xl border border-border py-4 font-sans text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted active:scale-[0.98]">
               Pago en Efectivo / Caja
             </button>
           </div>
+
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>
