@@ -47,21 +47,20 @@ const Index = () => {
   const [revealDone, setRevealDone] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [localTable, setLocalTable] = useState('');
-  
+
   const addItem = useCart((s) => s.addItem);
   const orderType = useCart((s) => s.orderType);
   const tableNumber = useCart((s) => s.tableNumber);
   const setOrderInfo = useCart((s) => s.setOrderInfo);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Auto-open modal if no order type is set
+
   useEffect(() => {
     if (!orderType && revealDone) {
       setTimeout(() => setIsLocationModalOpen(true), 1500);
     }
   }, [orderType, revealDone]);
 
-  // Detect system dark mode
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const apply = (e: MediaQueryListEvent | MediaQueryList) => {
@@ -72,17 +71,32 @@ const Index = () => {
     return () => mq.removeEventListener('change', apply);
   }, []);
 
-  // Simulate API fetch
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMenu(mockMenu);
-      setActiveCategory(mockMenu.categorias[0]?.id ?? 0);
-      setLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    const subdominio = params.get('subdominio') || 'pizzeria-roma';
+    const mesa = params.get('mesa') || '1';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-  // GSAP stagger entrance for product cards
+    const fetchMenu = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/menu/${subdominio}/mesa/${mesa}`);
+        if (!response.ok) throw new Error('Error al cargar el menú');
+        const data = await response.json();
+        setMenu(data);
+        setActiveCategory(data.categorias[0]?.id ?? 0);
+        if (data.mesa_id) {
+          setOrderInfo('sucursal', data.mesa, data.sucursal_id, data.mesa_id);
+        }
+      } catch (error) {
+        console.error('Error fetching menu:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMenu();
+  }, [setOrderInfo]);
+
   useEffect(() => {
     if (!gridRef.current || loading) return;
     const cards = gridRef.current.querySelectorAll('[data-product-card]');
@@ -193,7 +207,7 @@ const Index = () => {
                     <ProductCard
                       product={product}
                       onAdd={handleAddProduct}
-                      image={imageMap[product.id]}
+                      image={product.imagen || imageMap[product.id]}
                     />
                   </div>
                 ))}

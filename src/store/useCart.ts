@@ -5,7 +5,9 @@ interface CartStore {
   items: CartItem[];
   orderType: 'sucursal' | 'domicilio' | null;
   tableNumber: string | null;
-  setOrderInfo: (type: 'sucursal' | 'domicilio', table: string | null) => void;
+  sucursalId: number | null;
+  mesaId: number | null;
+  setOrderInfo: (type: 'sucursal' | 'domicilio', table: string | null, sucursalId?: number, mesaId?: number) => void;
   addItem: (producto: Producto, variantes: Variante[], notas: string) => void;
   removeItem: (lineId: string) => void;
   updateQuantity: (lineId: string, cantidad: number) => void;
@@ -18,8 +20,11 @@ export const useCart = create<CartStore>((set, get) => ({
   items: [],
   orderType: null,
   tableNumber: null,
+  sucursalId: null,
+  mesaId: null,
 
-  setOrderInfo: (orderType, tableNumber) => set({ orderType, tableNumber }),
+  setOrderInfo: (orderType, tableNumber, sucursalId, mesaId) => 
+    set({ orderType, tableNumber, sucursalId: sucursalId || null, mesaId: mesaId || null }),
 
   addItem: (producto, variantes, notas) => {
     const lineId = `${producto.id}-${variantes.map(v => v.id).sort().join(',')}-${Date.now()}`;

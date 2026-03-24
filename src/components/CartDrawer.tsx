@@ -6,30 +6,47 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
 
 const CartDrawer = () => {
-  const { items, total, itemCount, updateQuantity, clearCart, orderType, tableNumber } = useCart();
+  const { items, total, itemCount, updateQuantity, clearCart, orderType, tableNumber, sucursalId, mesaId } = useCart();
   const count = itemCount();
   const cartTotal = total();
 
-  const handleSuccessfulPayment = (details?: any) => {
+  const handleSuccessfulPayment = async (details?: any) => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    
     const orderPayload = {
-      orderType,
-      tableNumber,
-      total: cartTotal,
-      paypalOrderId: details?.id,
+      sucursal_id: sucursalId,
+      mesa_id: mesaId,
       items: items.map(item => ({
         id: item.producto.id,
-        nombre: item.producto.nombre,
         cantidad: item.cantidad,
-        // The formatted notes combining text notes and variants (true/false concept)
-        notasFormateadas: `Notas del cliente: ${item.notas || 'Ninguna'}. Variantes seleccionadas: ${item.variantes_seleccionadas.map(v => v.nombre).join(', ') || 'Ninguna'}.`,
-        variantesObjeto: item.variantes_seleccionadas.reduce((acc, v) => ({ ...acc, [v.nombre]: true }), {}),
-        precioUnitario: item.producto.precio,
+        notas: item.notas,
+        variantes: item.variantes_seleccionadas.map(v => ({ id: v.id })),
       }))
     };
-    
-    console.log("==> Mock API Payload (Success):", JSON.stringify(orderPayload, null, 2));
-    alert(`¡Pedido confirmado! Se recibirá ${orderType === 'sucursal' ? 'en la mesa ' + tableNumber : 'a domicilio'}. \nRevisa la consola para ver el Payload enviado a la API.`);
-    clearCart();
+
+    try {
+      const response = await fetch(`${apiUrl}/pedido`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(orderPayload),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || 'Error al procesar el pedido');
+      }
+
+      const result = await response.json();
+      console.log("==> Pedido creado:", result);
+      alert(`¡Pedido confirmado! Tu pedido #${result.pedido_id} ha sido enviado a la cocina.`);
+      clearCart();
+    } catch (error: any) {
+      console.error("Error al enviar pedido:", error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   const handleCashPayment = () => {
