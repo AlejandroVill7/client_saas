@@ -9,9 +9,8 @@ import MenuSkeleton from '@/components/MenuSkeleton';
 import OpeningAnimation from '@/components/OpeningAnimation';
 import GoldenGarlands from '@/components/GoldenGarlands';
 import { useCart } from '@/store/useCart';
-import { mockMenu } from '@/data/mockMenu';
 import type { Producto, Variante, MenuResponse } from '@/types/menu';
-import { MapPin, Home, Utensils } from 'lucide-react';
+import { MapPin, Home, Utensils, Loader2, ChevronLeft } from 'lucide-react';
 
 // Image imports
 import imgCarpaccio from '@/assets/dish-carpaccio.jpg';
@@ -38,7 +37,7 @@ const imageMap: Record<number, string> = {
   10: imgVino,
 };
 
-const Index = () => {
+const Index = ({ isDomicilio = false }: { isDomicilio?: boolean }) => {
   const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<number>(0);
@@ -52,14 +51,19 @@ const Index = () => {
   const orderType = useCart((s) => s.orderType);
   const tableNumber = useCart((s) => s.tableNumber);
   const setOrderInfo = useCart((s) => s.setOrderInfo);
+  const clearCart = useCart((s) => s.clearCart);
   const gridRef = useRef<HTMLDivElement>(null);
 
 
   useEffect(() => {
-    if (!orderType && revealDone) {
-      setTimeout(() => setIsLocationModalOpen(true), 1500);
+    if (revealDone && !orderType && !isDomicilio) {
+      // Solo abrimos el modal si no es domicilio y no hay mesa en URL
+      const params = new URLSearchParams(window.location.search);
+      if (!params.get('mesa')) {
+        setIsLocationModalOpen(true);
+      }
     }
-  }, [orderType, revealDone]);
+  }, [revealDone, orderType, isDomicilio]);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -74,18 +78,26 @@ const Index = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const subdominio = params.get('subdominio') || 'pizzeria-roma';
-    const mesa = params.get('mesa') || '1';
+    const mesaParam = params.get('mesa');
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
     const fetchMenu = async () => {
       try {
-        const response = await fetch(`${apiUrl}/menu/${subdominio}/mesa/${mesa}`);
+        const url = mesaParam 
+          ? `${apiUrl}/menu/${subdominio}/mesa/${mesaParam}`
+          : `${apiUrl}/menu/${subdominio}/mesa/1`; // Default for fetching categories/products
+
+        const response = await fetch(url);
         if (!response.ok) throw new Error('Error al cargar el menú');
         const data = await response.json();
         setMenu(data);
         setActiveCategory(data.categorias[0]?.id ?? 0);
-        if (data.mesa_id) {
-          setOrderInfo('sucursal', data.mesa, data.sucursal_id, data.mesa_id);
+
+        // Auto-determinar orderType
+        if (isDomicilio) {
+          setOrderInfo('domicilio', null, data.sucursal_id, null);
+        } else if (mesaParam) {
+          setOrderInfo('sucursal', mesaParam, data.sucursal_id, data.mesa_id || Number(mesaParam));
         }
       } catch (error) {
         console.error('Error fetching menu:', error);
@@ -95,10 +107,10 @@ const Index = () => {
     };
 
     fetchMenu();
-  }, [setOrderInfo]);
+  }, [isDomicilio]);
 
   useEffect(() => {
-    if (!gridRef.current || loading) return;
+    if (!gridRef.current || loading || !orderType) return;
     const cards = gridRef.current.querySelectorAll('[data-product-card]');
     if (cards.length === 0) return;
 
@@ -116,7 +128,7 @@ const Index = () => {
         clearProps: 'all',
       }
     );
-  }, [activeCategory, loading]);
+  }, [activeCategory, loading, orderType]);
 
   const handleAddProduct = (product: Producto) => {
     if (product.variantes.length > 0) {
@@ -135,6 +147,20 @@ const Index = () => {
     setRevealDone(true);
   }, []);
 
+  const handleReturnToChoice = () => {
+    // Si hay items en el carrito, confirmar primero
+    if (useCart.getState().items.length > 0) {
+      if (confirm('Al cambiar el tipo de pedido se vaciará tu carrito. ¿Deseas continuar?')) {
+        clearCart();
+        setOrderInfo(null as any, null, null as any, null as any);
+        setIsLocationModalOpen(true);
+      }
+    } else {
+      setOrderInfo(null as any, null, null as any, null as any);
+      setIsLocationModalOpen(true);
+    }
+  };
+
   const currentCategory = menu?.categorias.find((c) => c.id === activeCategory);
 
   return (
@@ -143,6 +169,19 @@ const Index = () => {
 
       <div className="relative min-h-screen bg-background pb-28 overflow-x-hidden">
         <GoldenGarlands />
+
+        {/* Floating Return Button */}
+        {revealDone && orderType && (
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={handleReturnToChoice}
+            className="fixed left-4 top-4 z-[60] flex items-center gap-2 rounded-full bg-background/20 px-4 py-2 text-xs font-bold uppercase tracking-wider backdrop-blur-md border border-white/10 hover:bg-background/40 transition-all active:scale-95"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Cambiar Pedido
+          </motion.button>
+        )}
 
         {/* Header */}
         <header className="relative z-10 px-6 pt-safe-top">
@@ -188,7 +227,7 @@ const Index = () => {
 
         {loading ? (
           <MenuSkeleton />
-        ) : menu ? (
+        ) : menu && orderType ? (
           <>
             <CategorySelector
               categories={menu.categorias}
@@ -214,6 +253,11 @@ const Index = () => {
               </div>
             </main>
           </>
+        ) : !orderType && revealDone ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="font-display text-lg">Selecciona cómo deseas pedir</p>
+          </div>
         ) : null}
 
         <CartDrawer />
@@ -225,7 +269,7 @@ const Index = () => {
           onConfirm={handleConfirmCustomizer}
         />
 
-        {/* Location Modal Overlay */}
+        {/* Location Modal Overlay (Submenú inicial) */}
         <AnimatePresence>
           {isLocationModalOpen && !orderType && (
             <motion.div
@@ -249,11 +293,12 @@ const Index = () => {
                   <div className="flex flex-col gap-2">
                     <button
                       onClick={() => {
-                        if (!localTable) {
-                          alert('Por favor, ingresa un número de mesa');
+                        const tableNum = parseInt(localTable);
+                        if (isNaN(tableNum) || tableNum <= 0 || tableNum > 50) {
+                          alert('Por favor, ingresa un número de mesa válido');
                           return;
                         }
-                        setOrderInfo('sucursal', localTable);
+                        setOrderInfo('sucursal', localTable, menu?.sucursal_id || 1, 1);
                         setIsLocationModalOpen(false);
                       }}
                       className="flex items-center gap-3 w-full rounded-2xl bg-primary py-4 px-4 font-sans text-sm font-bold uppercase tracking-wider text-primary-foreground transition-transform active:scale-[0.98]"
@@ -262,10 +307,16 @@ const Index = () => {
                       En Sucursal
                     </button>
                     <input
-                      type="text"
-                      placeholder="Número de Mesa"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      max="99"
+                      placeholder="Número de Mesa (1-99)"
                       value={localTable}
-                      onChange={(e) => setLocalTable(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                        setLocalTable(val);
+                      }}
                       className="w-full rounded-xl border border-border bg-transparent px-4 py-3 text-center text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none transition-colors"
                     />
                   </div>
@@ -278,7 +329,7 @@ const Index = () => {
 
                   <button
                     onClick={() => {
-                      setOrderInfo('domicilio', null);
+                      setOrderInfo('domicilio', null, menu?.sucursal_id || 1, null);
                       setIsLocationModalOpen(false);
                     }}
                     className="flex items-center gap-3 w-full rounded-2xl border border-border py-4 px-4 font-sans text-sm font-semibold uppercase tracking-wider text-foreground hover:bg-muted transition-colors active:scale-[0.98]"
