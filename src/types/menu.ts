@@ -10,6 +10,7 @@ export interface Producto {
   descripcion: string;
   precio: number;
   imagen: string | null;
+  variantes_exclusivas: boolean;
   variantes: Variante[];
 }
 

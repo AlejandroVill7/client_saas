@@ -16,10 +16,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/domicilio" element={<Index isDomicilio={true} />} />
           <Route path="/order-status/:id" element={<OrderStatus />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Rutas dinámicas para QR de MESA */}
+          <Route path="/:sucursal_id/:mesa_id" element={<Index />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

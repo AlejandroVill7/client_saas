@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from 'vaul';
 import type { Producto, Variante } from '@/types/menu';
-import { Check } from 'lucide-react';
+import { Check, Circle, CheckCircle2 } from 'lucide-react';
 
 interface ProductCustomizerProps {
   product: Producto | null;
@@ -16,9 +16,13 @@ const ProductCustomizer = ({ product, open, onClose, onConfirm }: ProductCustomi
   const [notas, setNotas] = useState('');
 
   const toggleVariante = (v: Variante) => {
-    setSelectedVariantes((prev) =>
-      prev.find((s) => s.id === v.id) ? prev.filter((s) => s.id !== v.id) : [...prev, v]
-    );
+    if (product?.variantes_exclusivas) {
+      setSelectedVariantes([v]);
+    } else {
+      setSelectedVariantes((prev) =>
+        prev.find((s) => s.id === v.id) ? prev.filter((s) => s.id !== v.id) : [...prev, v]
+      );
+    }
   };
 
   const handleConfirm = () => {
@@ -54,7 +58,7 @@ const ProductCustomizer = ({ product, open, onClose, onConfirm }: ProductCustomi
                 {product.variantes.length > 0 && (
                   <div className="flex flex-col gap-3">
                     <span className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-                      Personalizar
+                      {product.variantes_exclusivas ? 'Elige una opción (Requerido)' : 'Personalizar'}
                     </span>
                     <div className="flex flex-col gap-2">
                       {product.variantes.map((v) => {
@@ -76,7 +80,11 @@ const ProductCustomizer = ({ product, open, onClose, onConfirm }: ProductCustomi
                                   +${v.precio_extra}
                                 </span>
                               )}
-                              {isSelected && <Check className="h-4 w-4 text-primary" />}
+                              {product.variantes_exclusivas ? (
+                                isSelected ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <Circle className="h-4 w-4 text-muted-foreground/30" />
+                              ) : (
+                                isSelected && <Check className="h-4 w-4 text-primary" />
+                              )}
                             </div>
                           </button>
                         );
@@ -99,7 +107,8 @@ const ProductCustomizer = ({ product, open, onClose, onConfirm }: ProductCustomi
 
                 <button
                   onClick={handleConfirm}
-                  className="w-full rounded-2xl bg-primary py-4 font-sans text-sm font-bold uppercase tracking-wider text-primary-foreground transition-transform active:scale-[0.98]"
+                  disabled={product.variantes_exclusivas && selectedVariantes.length === 0}
+                  className="w-full rounded-2xl bg-primary py-4 font-sans text-sm font-bold uppercase tracking-wider text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Añadir — ${product.precio + extras}
                 </button>

@@ -12,7 +12,7 @@ const CartDrawer = () => {
   const count = itemCount();
   const cartTotal = total();
 
-  const handleSuccessfulPayment = async (details?: any) => {
+  const handleSuccessfulPayment = async (details?: unknown) => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
     
     const orderPayload = {
@@ -42,6 +42,8 @@ const CartDrawer = () => {
         body: JSON.stringify(orderPayload),
       });
 
+      if (!response.ok) throw new Error('Error al enviar el pedido');
+      
       const result = await response.json();
       console.log("==> Pedido creado:", result);
       clearCart();
@@ -51,17 +53,20 @@ const CartDrawer = () => {
       } else {
         alert('¡Pedido enviado a la cocina! Tu mesero te atenderá pronto.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error al enviar pedido:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      
       // Para fines de TEST, si falla la API (backend apagado), igual navegamos en domicilio
       if (orderType === 'domicilio') {
         clearCart();
         navigate(`/order-status/test-123`);
       } else {
-        alert(`Error al conectar con el servidor: ${error.message}`);
+        alert(`Error al conectar con el servidor: ${errorMessage}`);
       }
     }
   };
+
 
   const handleCashPayment = () => {
     handleSuccessfulPayment({ id: 'PAGO_EN_EFECTIVO' });
